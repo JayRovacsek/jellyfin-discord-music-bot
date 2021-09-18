@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-import { secondsToPlaytime, playtimeToSeconds } from '../util'
+import { secondsToPlaytime, playtimeToSeconds, checkJellyfinItemIDRegex } from '../util'
 
 describe('Utility function tests', () => {
   test('Should correctly generate the number of seconds in a playtime string', () => {
@@ -54,5 +54,17 @@ describe('Utility function tests', () => {
     const bigMixToPlaytime = secondsToPlaytime(bigMix)
 
     expect(bigMixToPlaytime).toEqual('257:03:40')
+  })
+
+  test('Should correctly return a match on a jellyfin item ID', () => {
+    const validInput = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    const isAnId = checkJellyfinItemIDRegex(validInput) !== null
+
+    expect(isAnId).toEqual(true)
+
+    const invalidInput = ''
+    const notAnId = checkJellyfinItemIDRegex(invalidInput) !== null
+
+    expect(notAnId).toEqual(false)
   })
 })
