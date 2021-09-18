@@ -17,6 +17,16 @@ describe('Utility function tests', () => {
     const hourToSeconds = playtimeToSeconds(hour)
 
     expect(hourToSeconds).toEqual(3600)
+
+    const smallMix = '12:34:56'
+    const smallMixToSeconds = playtimeToSeconds(smallMix)
+
+    expect(smallMixToSeconds).toEqual(45296)
+
+    const bigMix = '25:61:61'
+    const bigMixToSeconds = playtimeToSeconds(bigMix)
+
+    expect(bigMixToSeconds).toEqual(93721)
   })
 
   test('Should correctly generate a playtime string from a given number (seconds)', () => {
