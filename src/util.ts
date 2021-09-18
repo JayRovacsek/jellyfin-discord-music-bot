@@ -21,13 +21,14 @@ export const ticksToSeconds = (ticks: number) => ticks / 10000000
 export const playtimeToSeconds = (playtime: string): number =>
   playtime
     .split(':')
+    .reverse()
     .map(value => parseInt(value))
-    .reduce((value, acc, index) => {
+    .reduce((acc, value, index) => {
       switch (index) {
-        case 0: return (hour * value) + acc
-        case 1: return (minute * value) + acc
+        case 0: return value + acc
+        case 1: return (value * minute) + acc
         default:
-          return value + acc
+          return (value * hour) + acc
       }
     }, 0)
 
@@ -47,7 +48,7 @@ export const secondsToPlaytime = (seconds: number): string =>
       }
     })
     .map(value => `${value}`.padStart(2, '0'))
-    .reduce((value, acc, index) => `${value}${index > 0 ? ':' : ''}${acc}`, '')
+    .reduce((acc, value, index) => `${acc}${index > 0 ? ':' : ''}${value}`, '')
 
 export const getDiscordEmbedError = (error: string): Discord.MessageEmbed => {
   return new Discord.MessageEmbed()
