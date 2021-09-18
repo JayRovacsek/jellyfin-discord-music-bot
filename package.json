@@ -1,13 +1,14 @@
 {
   "name": "jellyfin-discord-music-bot",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Jellyfin Discord Music Bot is a Discord Bot for the Jellyfin Media Server!",
   "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/index.js",
-    "postinstall": "npx patch-package",
-    "lint": "npx eslint src/ & npx eslint parseENV.js"
+    "build": "tsc",
+    "test": "jest --env=node --colors --coverage test",
+    "lint": "eslint \"src/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" --fix"
   },
   "repository": {
     "type": "git",
@@ -18,12 +19,12 @@
     "Discord",
     "Discord-Bot"
   ],
-  "author": "KGT1",
+  "author": "jayrovacsek",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/KGT1/jellyfin-discord-music-bot/issues"
+    "url": "https://github.com/jayrovacsek/jellyfin-discord-music-bot/issues"
   },
-  "homepage": "https://github.com/KGT1/jellyfin-discord-music-bot#readme",
+  "homepage": "https://github.com/jayrovacsek/jellyfin-discord-music-bot#readme",
   "dependencies": {
     "@discordjs/opus": "^0.3.2",
     "chalk": "^4.1.0",
@@ -37,12 +38,18 @@
     "ws": "^7.3.1"
   },
   "devDependencies": {
-    "patch-package": "^6.4.7",
-    "eslint": "^7.9.0",
-    "eslint-config-standard": "^14.1.1",
-    "eslint-plugin-import": "^2.22.0",
+    "@types/jest": "^27.0.1",
+    "@types/node": "^16.9.2",
+    "@typescript-eslint/eslint-plugin": "^4.31.1",
+    "@typescript-eslint/parser": "^4.31.1",
+    "eslint": "^7.32.0",
+    "eslint-config-standard": "^16.0.3",
+    "eslint-plugin-import": "^2.24.2",
     "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^4.2.1",
-    "eslint-plugin-standard": "^4.0.1"
+    "eslint-plugin-promise": "^5.1.0",
+    "eslint-plugin-standard": "^4.0.1",
+    "jest": "^27.2.0",
+    "ts-jest": "^27.0.5",
+    "typescript": "^4.4.3"
   }
 }
