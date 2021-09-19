@@ -1,9 +1,10 @@
 import * as Discord from 'discord.js'
 import { ApiClient, Events } from 'jellyfin-apiclient'
 import * as os from 'os'
+import { discordToken, jellyfinServerAddress, jellyfinUsername, jellyfinPassword, discordPrefix, jellyfinAppName, interactiveSeekBarInterval, logLevel } from './config'
 
 const discordClient = new Discord.Client()
-const jellyfinClient = new ApiClient(CONFIG['server-adress'], CONFIG['jellyfin-app-name'], '0.0.1', os.hostname(), os.hostname())
+const jellyfinClient = new ApiClient(jellyfinServerAddress, jellyfinAppName, '0.0.2', os.hostname(), os.hostname())
 
 try {
   const CONFIG = require('../config.json')
