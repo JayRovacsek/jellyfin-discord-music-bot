@@ -1,5 +1,7 @@
 const InterActivePlayMessage = require('./InterActivePlayMessage')
-const CONFIG = require('../config.json')
+import {} from "./interactivePlayMessage"
+
+import {  interactiveSeekBarInterval } from './config'
 
 var iapm
 
@@ -38,10 +40,10 @@ function hasMessage () {
  * @param {Function} callback function to retrieve current ticks
  */
 function startUpate (callback) {
-  if (typeof CONFIG['interactive-seek-bar-update-intervall'] === 'number' && CONFIG['interactive-seek-bar-update-intervall'] > 0) {
+  if (interactiveSeekBarInterval > 0) {
     updateInterval = setInterval(() => {
       iapm.updateProgress(callback())
-    }, CONFIG['interactive-seek-bar-update-intervall'])
+    }, interactiveSeekBarInterval)
   }
 }
 

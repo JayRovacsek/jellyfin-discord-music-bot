@@ -1,61 +1,22 @@
 import * as Discord from 'discord.js'
-import { ApiClient, Events } from 'jellyfin-apiclient'
-import * as os from 'os'
-import { discordToken, jellyfinServerAddress, jellyfinUsername, jellyfinPassword, discordPrefix, jellyfinAppName, interactiveSeekBarInterval, logLevel } from './config'
+import { client as DiscordClient } from './discord'
+import { discordPrefix } from './config'
 
-const discordClient = new Discord.Client()
-const jellyfinClient = new ApiClient(jellyfinServerAddress, jellyfinAppName, '0.0.2', os.hostname(), os.hostname())
+const discordClient = DiscordClient()
 
-try {
-  const CONFIG = require('../config.json')
-
-  const jellyfinClientManager = require('./jellyfinclientmanager')
-
-  const discordclientmanager = require('./discordclientmanager')
-  discordclientmanager.init()
-  const discordClient = discordclientmanager.getDiscordClient()
-  const {
-    handleChannelMessage
-  } = require('./messagehandler')
-  const log = require('loglevel')
-  const prefix = require('loglevel-plugin-prefix')
-  const chalk = require('chalk')
-  const colors = {
-    TRACE: chalk.magenta,
-    DEBUG: chalk.cyan,
-    INFO: chalk.blue,
-    WARN: chalk.yellow,
-    ERROR: chalk.red
+discordClient.on('message', async (message: Discord.Message) => {
+  if (message.content.startsWith(discordPrefix)) {
+    const result = await discordClient.handleMessage(message)
+    if (result.status === 'failure' && result.message) {
+      console.warn(result.message)
+    }
   }
+})
 
-  log.setLevel(CONFIG['log-level'])
-
-  prefix.reg(log)
-  log.enableAll()
-
-  prefix.apply(log, {
-    format (level, name, timestamp) {
-      return `${chalk.gray(`[${timestamp}]`)} ${colors[level.toUpperCase()](level)} ${chalk.green(`${name}:`)}`
-    }
-  })
-
-  prefix.apply(log.getLogger('critical'), {
-    format (level, name, timestamp) {
-      return chalk.red.bold(`[${timestamp}] ${level} ${name}:`)
-    }
-  })
-
-  jellyfinClientManager.init()
-  // TODO Error Checking as the apiclients is inefficent
-  jellyfinClientManager.getJellyfinClient().authenticateUserByName(CONFIG['jellyfin-username'], CONFIG['jellyfin-password']).then((response) => {
-    jellyfinClientManager.getJellyfinClient().setAuthenticationInfo(response.AccessToken, response.SessionInfo.UserId)
-  })
-
-  discordClient.on('message', message => {
-    handleChannelMessage(message)
-  })
-
-  discordClient.login(CONFIG.token)
-} catch (error) {
-  console.error(error)
+const exitHandler = () => {
+  discordClient.closeJellyfinWebsocket()
 }
+
+['exit', 'SIGINT', 'SIGUSR1', 'SIGUSR2', 'uncaughtException', 'SIGTERM'].forEach((eventType) => {
+  process.on(eventType, exitHandler.bind(null, { exit: true }))
+})
