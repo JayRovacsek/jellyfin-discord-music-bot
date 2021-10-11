@@ -38,30 +38,32 @@ export enum LongIntent {
 
 export type Intent = ShortIntent | LongIntent
 
+type JellyfinItem = string
+type FallbackItem = string
+type Playlistitem = JellyfinItem | FallbackItem
+
+type ProgressPayload = {
+  canSeek: boolean,
+  isMuted: boolean,
+  isPaused: boolean,
+  itemId: string | null,
+  mediaSourceId: string | null,
+  nowPlayingQueue: Playlistitem[]
+  playMethod: string,
+  playSessionId: string,
+  playlistItemId: string | null,
+  positionTicks: number,
+  repeatMode: boolean,
+  volumeLevel: number,
+  eventName: string
+}
+
 const hasSubcommands = (intent: string): boolean => {
   if (intent in ShortIntent || intent in LongIntent) {
     return [ShortIntent.Play, ShortIntent.Skip, ShortIntent, LongIntent.Play, LongIntent.Skip].some(i => intent === i)
   }
   return false
 }
-
-// interface ExtendedClient extends Discord.Client {
-//     jellyfinClient: ApiClient;
-//     handleMessage(message: Discord.Message): Promise<Result>
-//     play(target: string): Promise<Result>
-//     playNow(target: string): Promise<Result>
-//     summon(channel: Discord.VoiceChannel): Promise<Result>
-//     disconnect(channel: Discord.VoiceChannel): Promise<Result>
-//     pause(target: string): Promise<Result>
-//     resume(target: string): Promise<Result>
-//     stop(target: string): Promise<Result>
-//     seek(target: string): Promise<Result>
-//     skip(target: string): Promise<Result>
-//     add(target: string): Promise<Result>
-//     help(target: string): Promise<Result>
-//     error(message: string | any): void
-// }
-
 
 export const parseIntent = (input: string): Intent | undefined => {
   const parsedIntent = input
@@ -73,15 +75,50 @@ export const parseIntent = (input: string): Intent | undefined => {
 }
 
 export class Client extends Discord.Client {
-  jellyfinClient: ApiClient
+  jellyfinClient: ApiClient;
+  playlistIndex: number;
+  playlist: Playlistitem[];
+  playbackBitrate: number;
+  progressPayload: ProgressPayload;
+  currentlyPlaying: boolean;
 
   constructor () {
     super()
     this.jellyfinClient = new ApiClient(jellyfinServerAddress, jellyfinAppName, '0.0.2', os.hostname(), os.hostname())
-    this.openJellyfinWebsocket()
+    this.playlistIndex = 0
+    this.playlist = []
+    this.playbackBitrate = 0
+    this.currentlyPlaying = false
+    this.progressPayload = {
+      canSeek: true,
+      isMuted: false,
+      isPaused: false,
+      itemId: null,
+      mediaSourceId: null,
+      nowPlayingQueue: [],
+      playMethod: 'DirectPlay',
+      playSessionId: 'ae2436edc6b91b11d72aeaa67f84e0ea',
+      playlistItemId: null,
+      positionTicks: 0,
+      repeatMode: false,
+      volumeLevel: 100,
+      eventName: 'pauseplayupdate'
+    }
+    this.login(discordToken).catch(error => {
+      console.info('An error occured authenticating with Discord, please refer to the below message for more info.')
+      if (typeof error === 'string') { console.error(error) }
+      if (typeof error === 'object') { console.error(JSON.stringify(error, null, 4)) }
+      exit(1)
+    })
+    this.openJellyfinWebsocket().catch(error => {
+      console.info('An error occured opening a websocket with Jellyfin, please refer to the below message for more info.')
+      if (typeof error === 'string') { console.error(error) }
+      if (typeof error === 'object') { console.error(JSON.stringify(error, null, 4)) }
+      exit(1)
+    })
   }
 
-  openJellyfinWebsocket () {
+  async openJellyfinWebsocket (): Promise<void> {
     try {
       this.jellyfinClient.openWebSocket()
     } catch (error) {
@@ -100,39 +137,54 @@ export class Client extends Discord.Client {
   }
 
   streamURLbuilder (itemID: string, bitrate: number): string {
-    const supportedCodecs = "opus";
-    const supportedContainers = "ogg,opus";
-    return `${this.jellyfinClient.serverAddress()}/Audio/${itemID}/universal?UserId=${this.jellyfinClient.getCurrentUserId()}&DeviceId=${this.jellyfinClient.deviceId()}&MaxStreamingBitrate=${bitrate}&Container=${supportedContainers}&AudioCodec=${supportedCodecs}&api_key=${this.jellyfinClient.accessToken()}&TranscodingContainer=ts&TranscodingProtocol=hls`;
+    const supportedCodecs = 'opus'
+    const supportedContainers = 'ogg,opus'
+    return `${this.jellyfinClient.serverAddress()}/Audio/${itemID}/universal?UserId=${this.jellyfinClient.getCurrentUserId()}&DeviceId=${this.jellyfinClient.deviceId()}&MaxStreamingBitrate=${bitrate}&Container=${supportedContainers}&AudioCodec=${supportedCodecs}&api_key=${this.jellyfinClient.accessToken()}&TranscodingContainer=ts&TranscodingProtocol=hls`
   }
 
-  async summonBot (message: Discord.Message) {
+  async connect (message: Discord.Message) {
     const voiceChannel = message.member?.voice.channel
     if (voiceChannel) {
       voiceChannel.join()
+      this.playbackBitrate = voiceChannel.bitrate
     }
   }
 
   async disconnect () {
     this.jellyfinClient.closeWebSocket()
     this.user?.client.voice?.connections.forEach(connection => connection.disconnect())
+    this.playlist = []
+    this.playlistIndex = 0
+    this.playbackBitrate = 0
   }
 
-  async addPlaybackItem (item: )
+  async add (message: Discord.Message): Promise<void> {
+    const target = message.content
+      .trim()
+      .substring(1)
+      .split(' ')
+      .filter((_, i) => i !== 0)
+      .join(' ')
 
-  async pause (message: Discord.Message) {
+    this.playlist = [...this.playlist]
+
+    const connections = this.user?.client.voice?.connections
+    if (this.currentlyPlaying === false) {
+      const activeConnection = connections.first()
+      activeConnection?.play()
+    }
+  }
+
+  async pause (message: Discord.Message): Promise<void> {
     const voiceConnection = this.user?.client.voice?.connections.first()
-    if(voiceConnection) {
-      this.jellyfinClient.reportPlaybackProgress(getProgressPayload());
-      const nowPlayingUrl = this.streamURLbuilder()
-      voiceConnection.play().pause(true)
+    if (voiceConnection) {
+      const nowPlayingUrl = this.streamURLbuilder(this.playlist[this.playlistIndex], this.playbackBitrate)
+      voiceConnection.play(nowPlayingUrl).pause(!this.progressPayload.isPaused)
       const paused = new Discord.MessageEmbed()
-          .setColor(0xff0000)
-          .setTitle('<:play_pause:757940598106882049> ' + 'Paused/Resumed.')
-          .setTimestamp()
-        message.channel.send(paused)
-      }
-    } else {
-      this.
+        .setColor(0xff0000)
+        .setTitle('<:play_pause:757940598106882049> ' + 'Paused/Resumed.')
+        .setTimestamp()
+      message.channel.send(paused)
     }
   }
 
@@ -149,16 +201,9 @@ export class Client extends Discord.Client {
         }
       }
 
-      const target = message.content
-        .trim()
-        .substring(1)
-        .split(' ')
-        .filter((_, i) => i !== 0)
-        .join(' ')
-
       switch (intent) {
         case 'summon': {
-          this.summonBot(message)
+          this.connect(message)
           break
         }
         case 'disconnect': {
@@ -166,37 +211,17 @@ export class Client extends Discord.Client {
           break
         }
         case 'pause': {
-          try {
-            playbackmanager.playPause()
-            const noPlay = new Discord.MessageEmbed()
-              .setColor(0xff0000)
-              .setTitle('<:play_pause:757940598106882049> ' + 'Paused/Resumed.')
-              .setTimestamp()
-            message.channel.send(noPlay)
-          } catch (error) {
-            const errorMessage = getDiscordEmbedError(error)
-            message.channel.send(errorMessage)
-          }
+          this.pause(message)
           break
         }
         case 'resume': {
-          try {
-            playbackmanager.playPause()
-            const noPlay = new Discord.MessageEmbed()
-              .setColor(0xff0000)
-              .setTitle('<:play_pause:757940598106882049> ' + 'Paused/Resumed.')
-              .setTimestamp()
-            message.channel.send(noPlay)
-          } catch (error) {
-            const errorMessage = getDiscordEmbedError(error)
-            message.channel.send(errorMessage)
-          }
+          this.pause(message)
           break
         }
         case 'play': {
-          if (discordClient.user.client.voice.connections.size < 1) {
-            handleSummon(message)
-            isSummendByPlay = true
+          if (this.user?.client.voice?.connections.size === 0) {
+            this.connect(message)
+            this.add(message)
           }
 
           play(message)
@@ -237,15 +262,6 @@ export class Client extends Discord.Client {
         }
         case 'add': {
           addThis(message)
-          break
-        }
-        case 'spawn': {
-          try {
-            playbackmanager.spawnPlayMessage(message)
-          } catch (error) {
-            const errorMessage = getDiscordEmbedError(error)
-            message.channel.send(errorMessage)
-          }
           break
         }
         case 'help': {
@@ -299,24 +315,24 @@ export class Client extends Discord.Client {
   }
 }
 
-const discordClient = new Discord.Client()
-const jellyfinClient = new ApiClient(jellyfinServerAddress, jellyfinAppName, '0.0.2', os.hostname(), os.hostname())
+// const discordClient = new Discord.Client()
+// const jellyfinClient = new ApiClient(jellyfinServerAddress, jellyfinAppName, '0.0.2', os.hostname(), os.hostname())
 
-const main = async () => {
-  try {
-    const response = await jellyfinClient
-      .authenticateUserByName(jellyfinUsername, jellyfinPassword)
+// const main = async () => {
+//   try {
+//     const response = await jellyfinClient
+//       .authenticateUserByName(jellyfinUsername, jellyfinPassword)
 
-    jellyfinClient.setAuthenticationInfo(response.AccessToken, response.SessionInfo.UserId)
+//     jellyfinClient.setAuthenticationInfo(response.AccessToken, response.SessionInfo.UserId)
 
-    discordClient.on('message', (message: Discord.Message) => {
-      handleMessage(message)
-    })
+//     discordClient.on('message', (message: Discord.Message) => {
+//       handleMessage(message)
+//     })
 
-    discordClient.login(discordToken)
-  } catch (error) {
-    console.error(error)
-  }
-}
+//     discordClient.login(discordToken)
+//   } catch (error) {
+//     console.error(error)
+//   }
+// }
 
 export const client = () => new Client()

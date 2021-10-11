@@ -17,6 +17,9 @@ const exitHandler = () => {
   discordClient.closeJellyfinWebsocket()
 }
 
+/**
+ * On failure or closure cases we want to ensure connections are closed properly
+ */
 ['exit', 'SIGINT', 'SIGUSR1', 'SIGUSR2', 'uncaughtException', 'SIGTERM'].forEach((eventType) => {
   process.on(eventType, exitHandler.bind(null, { exit: true }))
 })

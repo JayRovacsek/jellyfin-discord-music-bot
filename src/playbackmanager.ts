@@ -14,12 +14,12 @@ const {
 
 // this whole thing should be a class but its probably too late now.
 
-var currentPlayingPlaylist
-var currentPlayingPlaylistIndex
-var isPaused
-var isRepeat
-var _disconnectOnFinish
-var _seek
+let currentPlayingPlaylist
+let currentPlayingPlaylistIndex
+let isPaused
+let isRepeat
+let _disconnectOnFinish
+let _seek
 
 const jellyfinClientManager = require('./jellyfinclientmanager')
 
@@ -246,33 +246,11 @@ function getNowPLayingQueue () {
   }]
 }
 
-function getCanSeek () {
-  return true
-}
-
-function getIsMuted () {
-  return false
-}
-
-function getVolumeLevel () {
-  return 100
-}
-
 function getItemId () {
   if (typeof currentPlayingPlaylist !== 'undefined') {
     return currentPlayingPlaylist[currentPlayingPlaylistIndex]
   }
   return undefined
-}
-
-function getIsPaused () {
-  // AudioDispacker Paused is to slow
-
-  if (isPaused === undefined) {
-    isPaused = false
-  }
-
-  return isPaused
 }
 
 function setIsRepeat (arg) {
@@ -286,9 +264,9 @@ function setIsRepeat (arg) {
 
 function getProgressPayload () {
   const payload = {
-    CanSeek: getCanSeek(),
-    IsMuted: getIsMuted(),
-    IsPaused: getIsPaused(),
+    CanSeek: true,
+    IsMuted: false,
+    IsPaused: false,
     ItemId: getItemId(),
     MediaSourceId: getItemId(),
     NowPlayingQueue: getNowPLayingQueue(),
@@ -297,7 +275,7 @@ function getProgressPayload () {
     PlaylistItemId: getPlaylistItemId(),
     PositionTicks: getPostitionTicks(),
     RepeatMode: getRepeatMode(),
-    VolumeLevel: getVolumeLevel(),
+    VolumeLevel: 100,
     EventName: 'pauseplayupdate'
   }
   return payload
