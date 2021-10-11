@@ -1,11 +1,12 @@
 /* eslint-disable no-unused-vars */
 import * as Discord from 'discord.js'
-import { discordPrefix, jellyfinServerAddress, jellyfinUsername, jellyfinPassword, jellyfinAppName, discordToken } from './config'
+import { discordPrefix, jellyfinServerAddress, jellyfinAppName, discordToken } from './config'
 /* @ts-ignore */
 import ApiClient from 'jellyfin-apiclient'
-import { DateTime } from 'luxon'
 import * as os from 'os'
 import { exit } from 'process'
+import { SearchResult } from './jellyfin/types'
+import { parsePlaySubcommand, randomColour } from './util'
 
 type Result = {
   status: 'success' | 'failure';
@@ -58,12 +59,12 @@ type ProgressPayload = {
   eventName: string
 }
 
-const hasSubcommands = (intent: string): boolean => {
-  if (intent in ShortIntent || intent in LongIntent) {
-    return [ShortIntent.Play, ShortIntent.Skip, ShortIntent, LongIntent.Play, LongIntent.Skip].some(i => intent === i)
-  }
-  return false
-}
+// const hasSubcommands = (intent: string): boolean => {
+//   if (intent in ShortIntent || intent in LongIntent) {
+//     return [ShortIntent.Play, ShortIntent.Skip, ShortIntent, LongIntent.Play, LongIntent.Skip].some(i => intent === i)
+//   }
+//   return false
+// }
 
 export const parseIntent = (input: string): Intent | undefined => {
   const parsedIntent = input
@@ -136,6 +137,11 @@ export class Client extends Discord.Client {
     }
   }
 
+  async updatePlaybackPayload () {
+    const payload = await this.jellyfinClient.reportPlaybackProgress({ userId: this.jellyfinClient.getCurrentUserId(), itemId: this.progressPayload.itemId })
+    this.progressPayload = payload
+  }
+
   streamURLbuilder (itemID: string, bitrate: number): string {
     const supportedCodecs = 'opus'
     const supportedContainers = 'ogg,opus'
@@ -158,21 +164,14 @@ export class Client extends Discord.Client {
     this.playbackBitrate = 0
   }
 
-  async add (message: Discord.Message): Promise<void> {
-    const target = message.content
-      .trim()
-      .substring(1)
-      .split(' ')
-      .filter((_, i) => i !== 0)
-      .join(' ')
+  async search (term: string, types: string[]): Promise<SearchResult> {
+    const includeTypes = types.join(',')
+    const searchResults: SearchResult = this.jellyfinClient.getSearchHints({ searchTerm: term, includeTypes })
+    return searchResults
+  }
 
-    this.playlist = [...this.playlist]
-
-    const connections = this.user?.client.voice?.connections
-    if (this.currentlyPlaying === false) {
-      const activeConnection = connections.first()
-      activeConnection?.play()
-    }
+  add (items: string[]): void {
+    this.playlist = [...this.playlist, ...items]
   }
 
   async pause (message: Discord.Message): Promise<void> {
@@ -221,49 +220,55 @@ export class Client extends Discord.Client {
         case 'play': {
           if (this.user?.client.voice?.connections.size === 0) {
             this.connect(message)
-            this.add(message)
+            const queryString = message.content
+              .split(`${discordPrefix}play`)
+              .filter((_, i) => i > 0)
+              .join('')
+            const types = parsePlaySubcommand(queryString)
+            const searchResults = await this.search(queryString, types)
+            if (searchResults.SearchHints.length > 0) {
+              this.add([searchResults.SearchHints[0].Id])
+            }
           }
 
-          play(message)
+          // this.play(message)
           break
         }
 
         case 'stop': {
-          if (isSummendByPlay) {
-            if (discordClient.user.client.voice.connections.size > 0) {
-              playbackmanager.stop(discordClient.user.client.voice.connections.first())
-            }
-          } else {
-            playbackmanager.stop()
-          }
+          this.currentlyPlaying = false
+          this.voice?.connections.clear()
           break
         }
 
-        case 'seek': {
-          const indexOfArgument = message.content.indexOf(discordPrefix + 'seek') + (discordPrefix + 'seek').length + 1
-          const argument = message.content.slice(indexOfArgument)
-          try {
-            playbackmanager.seek(hmsToSeconds(argument) * 10000000)
-          } catch (error) {
-            const errorMessage = getDiscordEmbedError(error)
-            message.channel.send(errorMessage)
-          }
-          break
-        }
+        /**
+         * This branch is scuffed as hell - need to rebuild this later
+         */
+        // case 'seek': {
+        //   const re = /(([0-9]+\:)+[0-9]{2})+|[0-9]+/;
+        //   await this.updatePlaybackPayload()
+        //   const matches = playtimeToSeconds(message.content.match(re)?.filter((_,i) => i === 0)[0] ?? "0") ?? this.progressPayload.positionTicks
+        //   const seekPosition = matches?.length > 0 ? matches[0]
+        //   const indexOfArgument = message.content.indexOf(discordPrefix + 'seek') + (discordPrefix + 'seek').length + 1
+        //   const argument = message.content.slice(indexOfArgument)
+        //   try {
+        //     this.jellyfinClient.
+        //     playbackmanager.seek(hmsToSeconds(argument) * 10000000)
+        //   } catch (error) {
+        //     const errorMessage = getDiscordEmbedError(error)
+        //     message.channel.send(errorMessage)
+        //   }
+        //   break
+        // }
 
         case 'skip': {
-          try {
-            playbackmanager.nextTrack()
-          } catch (error) {
-            const errorMessage = getDiscordEmbedError(error)
-            message.channel.send(errorMessage)
+          if (this.currentlyPlaying && this.playlist.length > 1) {
+            await this.updatePlaybackPayload()
+            this.jellyfinClient.reportPlaybackStopped(this.progressPayload)
           }
           break
         }
-        case 'add': {
-          addThis(message)
-          break
-        }
+
         case 'help': {
           /* eslint-disable quotes */
           const reply = new Discord.MessageEmbed()
@@ -301,7 +306,6 @@ export class Client extends Discord.Client {
               value: "Find the code for this bot at: https://github.com/jayrovacsek/jellyfin-discord-music-bot"
             })
           message.channel.send(reply)
-          /* eslint-enable quotes */
           break
         }
         default:
@@ -314,25 +318,5 @@ export class Client extends Discord.Client {
     }
   }
 }
-
-// const discordClient = new Discord.Client()
-// const jellyfinClient = new ApiClient(jellyfinServerAddress, jellyfinAppName, '0.0.2', os.hostname(), os.hostname())
-
-// const main = async () => {
-//   try {
-//     const response = await jellyfinClient
-//       .authenticateUserByName(jellyfinUsername, jellyfinPassword)
-
-//     jellyfinClient.setAuthenticationInfo(response.AccessToken, response.SessionInfo.UserId)
-
-//     discordClient.on('message', (message: Discord.Message) => {
-//       handleMessage(message)
-//     })
-
-//     discordClient.login(discordToken)
-//   } catch (error) {
-//     console.error(error)
-//   }
-// }
 
 export const client = () => new Client()

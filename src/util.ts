@@ -1,4 +1,5 @@
 import * as Discord from 'discord.js'
+import { SearchableMedia } from './jellyfin/types'
 
 const minute = 60
 const hour = minute * 60
@@ -56,4 +57,33 @@ export const getDiscordEmbedError = (error: string): Discord.MessageEmbed => {
     .setTitle('Error!')
     .setTimestamp()
     .setDescription(`<:x:757935515445231651> ${error}`)
+}
+
+const randomNumber = (a: number, b: number): number =>
+  Math.floor(Math.random() * (Math.max(a, b) - Math.min(a, b) + 1) + Math.min(a, b))
+
+export const randomColour = () => {
+  const gradientStart = '#AA5CC3'
+  const gradientEnd = '#00A4DC'
+
+  const redStart = parseInt(gradientStart.slice(1, 3), 16)
+  const greenStart = parseInt(gradientStart.slice(3, 5))
+  const blueStart = parseInt(gradientStart.slice(5, 7))
+
+  const redEnd = parseInt(gradientEnd.slice(1, 3), 16)
+  const greenEnd = parseInt(gradientEnd.slice(3, 5))
+  const blueEnd = parseInt(gradientEnd.slice(5, 7))
+
+  const redValue = randomNumber(redStart, redEnd).toString(16)
+  const greenValue = randomNumber(greenStart, greenEnd).toString(16)
+  const blueValue = randomNumber(blueStart, blueEnd).toString(16)
+
+  return `#${redValue}${greenValue}${blueValue}`
+}
+
+export const parsePlaySubcommand = (message: string): string[] => {
+  return SearchableMedia
+    .filter(option => option.aliases
+      .some(alias => message.includes(alias)))
+    .map(option => option.searchTerm)
 }
