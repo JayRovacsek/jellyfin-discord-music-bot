@@ -1,0 +1,15 @@
+services:
+  jellyfin-bot:
+    container_name: jellyfin-bot
+    hostname: jellyfin-bot
+    image: jellyfin-discord-bot-ts/testing:latest # just a name used in testing for now
+    environment:
+      DISCORD_PREFIX: '?'
+      DISCORD_TOKEN: secret
+      JELLYFIN_SERVER_ADDRESS: https://foo.bar.com
+      JELLYFIN_USERNAME: discord-bot
+      JELLYFIN_PASSWORD: secret
+      JELLYFIN_APP_NAME: Jellyfin Discord Music Bot
+      MESSAGE_UPDATE_INTERVAL: 2000
+
+version: "3"
