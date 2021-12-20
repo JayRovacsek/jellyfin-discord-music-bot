@@ -2,6 +2,10 @@ import * as Discord from 'discord.js'
 import { client as DiscordClient } from './discord'
 import { discordPrefix } from './config'
 
+if (/--debug|--inspect/.test(process.execArgv.join(' '))) {
+  require('dotenv').config()
+}
+
 const discordClient = DiscordClient()
 
 discordClient.on('message', async (message: Discord.Message) => {

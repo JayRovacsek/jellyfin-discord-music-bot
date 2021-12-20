@@ -1,9 +1,8 @@
 /* eslint-disable no-unused-vars */
 import * as Discord from 'discord.js'
 import { discordPrefix, jellyfinServerAddress, jellyfinAppName, discordToken } from './config'
-/* @ts-ignore */
+// @ts-ignore
 import ApiClient from 'jellyfin-apiclient'
-import * as os from 'os'
 import { exit } from 'process'
 import { SearchResult } from './jellyfin/types'
 import { parsePlaySubcommand, randomColour } from './util'
@@ -76,7 +75,7 @@ export const parseIntent = (input: string): Intent | undefined => {
 }
 
 export class Client extends Discord.Client {
-  jellyfinClient: ApiClient;
+  jellyfinClient;
   playlistIndex: number;
   playlist: Playlistitem[];
   playbackBitrate: number;
@@ -85,7 +84,7 @@ export class Client extends Discord.Client {
 
   constructor () {
     super()
-    this.jellyfinClient = new ApiClient(jellyfinServerAddress, jellyfinAppName, '0.0.2', os.hostname(), os.hostname())
+    this.jellyfinClient = new ApiClient(jellyfinServerAddress, jellyfinAppName, '0.0.2')
     this.playlistIndex = 0
     this.playlist = []
     this.playbackBitrate = 0
